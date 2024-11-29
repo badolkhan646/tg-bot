@@ -1,100 +1,114 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
-module.exports = {
-    config: {
-        name: "help",
-        version: "1.0",
-        author: "JARiF",
-        category: "UTILITY",
-        role: 0,
-    },
-    annieStart: async function({ bot, msg, match }) {
-        const chatId = msg.chat.id;
-        const commandName = match ? match[2].trim() : null;
+module.exports.config = {
+    name: "help",
+    version: "1.0",
+    author: "MOHAMMAD-BADOL",
+    role: 0,
+    usePrefix: true,
+    description: "List all commands",
+    commandCategory: "system",
+    guide: "{p}help",
+    coolDowns: 5,
+    premium: false
+};
 
-        if (!commandName) {
-            const categories = {};
-            const uncategorized = [];
-
-            const scriptFiles = fs.readdirSync(__dirname)
-            .filter(file => file.endsWith('.js') && !file.endsWith('.eg.js') && file !== 'help.js');
-
-
-            scriptFiles.forEach(file => {
-                const scriptPath = path.join(__dirname, file);
-                const { config } = require(scriptPath);
-                if (config && config.category) {
-                    if (!categories[config.category]) {
-                        categories[config.category] = [];
-                    }
-                    categories[config.category].push(file.replace('.js', ''));
-                } else {
-                    uncategorized.push(file.replace('.js', ''));
-                }
-            });
-
-            let message = '';
-            let totalCommands = 0;
-            for (const category in categories) {
-                message += `╭──『 ${category.toUpperCase()} 』\n`;
-                let commandCount = 0;
-                for (let i = 0; i < categories[category].length; i++) {
-                    if (commandCount === 3) {
-                        message += '\n';
-                        commandCount = 0; 
-                    }
-                    message += `✧${categories[category][i]} `;
-                    commandCount++;
-                }
-                message += '\n';
-                message += '╰───────────◊\n';
-                totalCommands += categories[category].length;
-            }
-
-            if (uncategorized.length > 0) {
-                message += `╭──『 UNCATEGORIZED 』\n`;
-                let commandCount = 0;
-                for (let i = 0; i < uncategorized.length; i++) {
-                    if (commandCount === 3) {
-                        message += '\n'; 
-                        commandCount = 0; 
-                    }
-                    message += `✧${uncategorized[i]} `;
-                    commandCount++;
-                }
-                message += '\n';
-                message += '╰───────────◊\n';
-                totalCommands += uncategorized.length;
-            }
-
-            message += '╭────────────◊\n';
-            message += `│ » Total commands: ${totalCommands}\n`;
-            message += '│ » A Powerful Telegram bot\n';
-            message += '│ » By MOHAMMAD-BADAL\n';
-            message += '╰────────◊\n';
-            message += '「 MIM-BOT-007 」';
-
-            bot.sendMessage(chatId, message);
-        } else {
-            const scriptPath = path.join(__dirname, `${commandName}.js`);
-            if (fs.existsSync(scriptPath)) {
-                const { config } = require(scriptPath);
-                if (config && typeof config === 'object') {
-                    const { name, version, author, countDown, role, category } = config;
-                    const message = `Command: ${name}\n` +
-                        `❏ Version: ${version}\n` +
-                        `❏ Author: ${author}\n` +
-                        `❏ Can use: ${role}\n` +
-                        `❏ Category: ${category || 'Uncategorized'}\n`;
-
-                    bot.sendMessage(chatId, message);
-                } else {
-                    bot.sendMessage(chatId, `No config available for ${commandName}.`);
-                }
-            } else {
-                bot.sendMessage(chatId, `Command ${commandName} not found.`);
-            }
+module.exports.run = async ({ event, args, message, threadsData }) => {
+    const commandFiles = fs.readdirSync(path.join(__dirname, '..', 'cmds')).filter(file => file.endsWith('.js'));
+    const config = require('../../config.json');
+    const thread = await threadsData.getThread(event.chat.id);
+    const prefix = thread?.prefix || '!';
+    let categories = {};
+    let totalCommands = 0;
+    for (const file of commandFiles) {
+        const command = require(path.join(__dirname, '..', 'cmds', file));
+        if (command.config) {
+            const category = command.config.commandCategory || command.config.category || 'OTHER';
+            if (!categories[category]) categories[category] = [];
+            categories[category].push(command.config);
+            totalCommands++;
         }
     }
+    if (args[0]) {
+        if (args[0] === '-s' && args[1]) {
+            const searchLetter = args[1].toLowerCase();
+            const matchingCommands = Object.values(categories).flat().filter(cmd => cmd.name.startsWith(searchLetter));
+            if (matchingCommands.length === 0) {
+                return message.reply(`No commands found starting with '${searchLetter}'.`);
+            }
+
+            let searchMessage = `✨ [ Commands Starting with '${searchLetter.toUpperCase()}' ] ✨\n\n`;
+            matchingCommands.forEach(cmd => (searchMessage += `✧ ${cmd.name}\n`));
+            return message.reply(searchMessage);
+        }
+
+        const commandName = args[0].toLowerCase();
+        const command = Object.values(categories).flat().find(cmd => cmd.name === commandName || cmd.aliases?.includes(commandName));
+
+        if (!command) {
+            return message.reply('Command not found.');
+        }
+
+        let guide = command?.guide || command?.usages || 'No usage available';
+        guide = guide.replace(/{pn}|{pm}|{p}|{prefix}|{name}/g, prefix + command?.name);
+
+        if (args[1] === '-u') {
+            const usageMessage = `📝 Usage for ${command.name}: ${guide}`;
+            return message.reply(usageMessage);
+        }
+
+        if (args[1] === '-a') {
+            const aliasesMessage = `🪶 [ Aliases for ${command.name} ]: ${command.aliases ? command.aliases.join(', ') : 'None'}`;
+            return message.reply(aliasesMessage);
+        }
+
+        let commandInfo = `
+╭──✦ [ Command: ${command.name.toUpperCase()} ]
+├‣ 📜 Name: ${command.name}
+├‣ 👤 Credits: ${command?.credits || command?.author || 'Unknown'}
+├‣ 🔑 Permission: ${command.role === 0 ? 'Everyone' : 'Admin'}
+├‣ 🪶 Aliases: ${command.aliases ? command.aliases.join(', ') : 'None'}
+├‣ 📜 Description: ${command.description || 'No description'}
+├‣ 📚 Guide: ${guide}
+├‣ 🚩 Prefix Required: ${command.prefix || command.usePrefix ? 'Yes' : 'No'}
+├‣ ⚜️ Premium: ${command.premium ? 'Yes' : 'No'}
+╰───────────────◊`;
+
+        return message.reply({
+        body: commandInfo,
+        attachment: await global.utils.getStreamFromURL("https://drive.google.com/uc?id=1X-rlSqgtVi-cI1hyoOyA2W4_mUpec7zv")
+      });
+    }
+  // const categoriesPerPage = 10;
+  const page = parseInt(args[0], 10) || 1;
+    const categoryKeys = Object.keys(categories);
+    const totalPages = 1; //Math.ceil(categoryKeys.length / categoriesPerPage);
+
+   // if (isNaN(page) || page < 1 || page > totalPages) {
+       // return message.reply(`Please provide a valid page number (1-${totalPages}).`);
+  //  }
+
+  //  const startIndex = (page - 1) * categoriesPerPage;
+   // const endIndex = startIndex + categoriesPerPage;
+ //   const paginatedCategories = categoryKeys.slice(startIndex, endIndex);
+
+   // if (paginatedCategories.length === 0) {
+    //    return message.reply(`Page ${page} is empty. Please enter a valid page number.`);
+   // }
+
+    let helpMessage = `✨ [ Guide For Beginners - Page ${page} ] ✨\n\n`;
+
+    for (const category of categoryKeys) {
+        helpMessage += `╭──── [ ${category.toUpperCase()} ]\n`;
+        helpMessage += `│ ✧${categories[category].map(cmd => cmd.name).join(' ✧ ')}\n`;
+        helpMessage += `╰───────────────◊\n`;
+    }
+
+    helpMessage += `\n╭─『 ${config.botName.toUpperCase()} BOT 』\n╰‣ Total commands: ${totalCommands}\n╰‣ Page ${page} of ${totalPages}\n╰‣ A personal Telegram bot ✨\n╰‣ ADMIN: ${config.adminName}\n`;
+
+    return message.reply({
+        body: helpMessage,
+        attachment: await global.utils.getStreamFromURL("https://drive.google.com/uc?id=1X-rlSqgtVi-cI1hyoOyA2W4_mUpec7zv")
+      });
 };
