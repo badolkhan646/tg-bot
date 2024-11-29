@@ -11,7 +11,7 @@ module.exports = {
         category: "owner",
         guide: "{p}"
     },
-  onStart: async ({ api, message ,event }) => {
+  annieStart: async ({ api, message ,event }) => {
         try {
             const botName = "MIM-BOT-007";
             const botPrefix = "/";
