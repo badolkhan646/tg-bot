@@ -4,9 +4,9 @@
     ],
     "prefix": "/",
     "webhookURL": "your_webhookURL", 
-    "supportGroupText": "Welcome to the bot! Type `help to see all available commands.\nJoin the support box to know how to use or how to create these types of bots: https://t.me/+YNKDd9_jIeYxNDQ1",
+    "supportGroupText": "Welcome to the bot! Type `help to see all available commands.\nJoin the support box to know how to use or how to create these types of bots: https://t.me/MIM_BOT_007",
     "prefixText": "🌐 System prefix:",
-    "botName": "BADOL-BOT",
+    "botName": "MIM-BOT-007",
     "adminUids": [
      "6954597258"
     ],
